@@ -6,11 +6,12 @@ Main Flask application that:
 3. Returns results as JSON
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 import tempfile
 import json
+import os 
 from openai_service import extract_text_from_image, translate_text
 
 # Load environment variables from .env
@@ -21,6 +22,9 @@ app = Flask(__name__)
 
 # Allow frontend (Next.js) to call this backend
 CORS(app)
+
+# In-memory storage for "sessions"
+SESSIONS = {}
 
 @app.route("/upload", methods=["POST"])
 def upload_and_translate():
@@ -68,6 +72,50 @@ def upload_and_translate():
         "original_text": extracted_text,
         "translations": translations
     })
+
+@app.route("/session/extract", methods=["POST"])
+def session_extract():
+    """
+    Example endpoint for session-based extraction.
+    Expects: { "session_id": "123", "languages": ["en", "fr"] }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid request"}), 400
+
+    session_id = data.get("session_id")
+    languages = data.get("languages", [])
+
+    if not session_id:
+        return jsonify({"error": "Missing session_id"}), 400
+
+    # Example: fetch stored medicines for session
+    medicines = SESSIONS.get(session_id, [])
+
+    # Translate medicine info
+    for med in medicines:
+        med["translations"] = {
+            lang: {
+                "medicine_name": translate_text(med["medicine_name"], lang),
+                "dosage": translate_text(med["dosage"], lang)
+            }
+            for lang in languages
+        }
+
+    return jsonify({
+        "session_id": session_id,
+        "medicines": medicines
+    })
+
+@app.route("/image/<filename>", methods=["GET"])
+def get_image(filename):
+    """
+    Returns an uploaded image by filename.
+    """
+    filepath = os.path.join("uploads", filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "Image not found"}), 404
+    return send_file(filepath, mimetype="image/jpeg")
 
 if __name__ == "__main__":
     # Run Flask locally
