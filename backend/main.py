@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os, tempfile, json
+from fastapi.responses import Response
 
 from services.openai_service import extract_text_from_image, translate_text
 from services.ocr_fallback import fallback_ocr
@@ -22,6 +23,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return Response(status_code=200)
+
 
 @app.get("/")
 def read_root():
