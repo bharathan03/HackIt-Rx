@@ -1,9 +1,9 @@
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse,Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os, tempfile, json
-from fastapi.responses import Response
+
 
 from services.openai_service import extract_text_from_image, translate_text
 from services.ocr_fallback import fallback_ocr
@@ -14,20 +14,26 @@ app = FastAPI()
 origins = [
     "https://hack-it-rx-front-end.vercel.app",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,        
+    allow_origins=origins,          # frontend URL(s) whitelist origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],            # GET, POST, etc.
+    allow_headers=["*"],            # Content-Type, Authorization, etc.
 )
 
+# ----- catch-all OPTIONS to ensure preflight is handled in serverless envs -----
 @app.options("/{rest_of_path:path}")
 async def preflight_handler(rest_of_path: str):
-    return Response(status_code=200)
-
+    return Response(status_code=200, headers={
+        "Access-Control-Allow-Origin": ", ".join(origins),
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Credentials": "true",
+    })
 
 @app.get("/")
 def read_root():
@@ -42,7 +48,6 @@ SESSIONS = {}
 class SessionExtractRequest(BaseModel):
     session_id: str
     languages: list[str]
-
 
 # ---------------------------
 # ROUTES

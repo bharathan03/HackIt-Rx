@@ -1,16 +1,25 @@
 import os
 from openai import OpenAI
 
-# Load API key from environment variable
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+def get_client():
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    return OpenAI(api_key=api_key)
+
 
 # ---------- OCR WITH OPENAI ----------
 async def extract_text_from_image(file_path: str) -> str:
     """
     Extract text from an image using OpenAI's Vision model.
+    Returns mock text if no API key is set.
     """
+    client = get_client()
+    if client is None:
+        # Mock response for local testing
+        return "MOCKED_OCR_RESULT: Take 1 tablet daily after meals."
+
     with open(file_path, "rb") as image_file:
         response = client.chat.completions.create(
             model="gpt-4o-mini",  # Vision-capable model
@@ -30,7 +39,13 @@ async def extract_text_from_image(file_path: str) -> str:
 async def translate_text(text: str, target_language: str) -> str:
     """
     Translate given text into the target language using OpenAI.
+    Returns mock translation if no API key is set.
     """
+    client = get_client()
+    if client is None:
+        # Mock translation for testing
+        return f"[MOCKED_TRANSLATION to {target_language}]: {text}"
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
