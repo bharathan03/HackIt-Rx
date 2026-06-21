@@ -6,7 +6,6 @@ import os, tempfile, json
 
 
 from services.openai_service import extract_text_from_image, translate_text
-from services.ocr_fallback import fallback_ocr
 
 app = FastAPI()
 
@@ -75,8 +74,7 @@ async def upload_and_translate(image: UploadFile = File(...), languages: str = F
     try:
         extracted_text = extract_text_from_image(tmp_path)
     except Exception as e:
-        print(f"⚠️ OpenAI OCR failed: {e}, using fallback...")
-        extracted_text = fallback_ocr(tmp_path)
+        return JSONResponse({"error": f"OCR failed: {str(e)}"}, status_code=500)
 
     # Translate
     translations = {}
@@ -150,8 +148,7 @@ async def translate_prescription(
     try:
         extracted_text = extract_text_from_image(file_location)
     except Exception as e:
-        print(f"⚠️ OpenAI OCR failed: {e}, using fallback...")
-        extracted_text = fallback_ocr(file_location)
+        return JSONResponse({"error": f"OCR failed: {str(e)}"}, status_code=500)
 
     # Translate
     translations = []
