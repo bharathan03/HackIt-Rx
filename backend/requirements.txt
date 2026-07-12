@@ -1,9 +1,6 @@
 fastapi
 uvicorn
 python-multipart
-pytesseract
 Pillow
 openai
 python-dotenv
-flask
-flask-cors

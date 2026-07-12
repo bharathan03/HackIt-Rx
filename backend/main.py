@@ -2,7 +2,10 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse,Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
 import os, tempfile, json
+
+load_dotenv()
 
 
 from services.openai_service import extract_text_from_image, translate_text
@@ -72,14 +75,14 @@ async def upload_and_translate(image: UploadFile = File(...), languages: str = F
 
     # OCR step
     try:
-        extracted_text = extract_text_from_image(tmp_path)
+        extracted_text = await extract_text_from_image(tmp_path)
     except Exception as e:
         return JSONResponse({"error": f"OCR failed: {str(e)}"}, status_code=500)
 
     # Translate
     translations = {}
     for lang in langs:
-        translations[lang] = translate_text(extracted_text, lang)
+        translations[lang] = await translate_text(extracted_text, lang)
 
     return {"original_text": extracted_text, "translations": translations}
 
@@ -146,7 +149,7 @@ async def translate_prescription(
 
     # OCR step
     try:
-        extracted_text = extract_text_from_image(file_location)
+        extracted_text = await extract_text_from_image(file_location)
     except Exception as e:
         return JSONResponse({"error": f"OCR failed: {str(e)}"}, status_code=500)
 
@@ -154,7 +157,7 @@ async def translate_prescription(
     translations = []
     for lang in [lang1, lang2, lang3]:
         if lang:
-            translated = translate_text(extracted_text, lang)
+            translated = await translate_text(extracted_text, lang)
             translations.append({lang: translated})
 
     return {"original": extracted_text, "translations": translations}
