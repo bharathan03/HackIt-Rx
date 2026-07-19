@@ -21,7 +21,8 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,          # frontend URL(s) whitelist origins
+    allow_origins=origins,
+    allow_origin_regex=r"https://hack-it-rx-front-end.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],            # GET, POST, etc.
     allow_headers=["*"],            # Content-Type, Authorization, etc.
