@@ -1,9 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import JSONResponse, FileResponse,Response
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from dotenv import load_dotenv
-import os, tempfile, json
+import tempfile, json
 
 load_dotenv()
 
@@ -28,33 +27,11 @@ app.add_middleware(
     allow_headers=["*"],            # Content-Type, Authorization, etc.
 )
 
-# ----- catch-all OPTIONS to ensure preflight is handled in serverless envs -----
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str):
-    return Response(status_code=200, headers={
-        "Access-Control-Allow-Origin": ", ".join(origins),
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true",
-    })
 
 @app.get("/")
 def read_root():
     return {"status": "ok"}
 
-# In-memory storage for sessions
-SESSIONS = {}
-
-# ---------------------------
-# MODELS
-# ---------------------------
-class SessionExtractRequest(BaseModel):
-    session_id: str
-    languages: list[str]
-
-# ---------------------------
-# ROUTES
-# ---------------------------
 
 @app.post("/upload")
 async def upload_and_translate(image: UploadFile = File(...), languages: str = Form(...)):
@@ -86,79 +63,3 @@ async def upload_and_translate(image: UploadFile = File(...), languages: str = F
         translations[lang] = await translate_text(extracted_text, lang)
 
     return {"original_text": extracted_text, "translations": translations}
-
-
-@app.post("/session/extract")
-async def session_extract(req: SessionExtractRequest):
-    """
-    Example endpoint for session-based extraction.
-    Expects: { "session_id": "123", "languages": ["en", "fr"] }
-    """
-    session_id = req.session_id
-    languages = req.languages
-
-    medicines = SESSIONS.get(session_id, [])
-
-    # Translate each medicine
-    for med in medicines:
-        med["translations"] = {
-            lang: {
-                "medicine_name": translate_text(med["medicine_name"], lang),
-                "dosage": translate_text(med["dosage"], lang),
-            }
-            for lang in languages
-        }
-
-    return {"session_id": session_id, "medicines": medicines}
-
-
-@app.get("/image/{filename}")
-async def get_image(filename: str):
-    """
-    Returns an uploaded image by filename.
-    """
-    filepath = os.path.join("uploads", filename)
-    if not os.path.exists(filepath):
-        return JSONResponse({"error": "Image not found"}, status_code=404)
-    return FileResponse(filepath, media_type="image/jpeg")
-
-
-@app.get("/health")
-async def health_check():
-    """
-    Quick check to make sure the API is running.
-    """
-    return {"status": "ok"}
-
-
-@app.post("/translate")
-async def translate_prescription(
-    file: UploadFile = File(...),
-    lang1: str = Form(...),
-    lang2: str = Form(None),
-    lang3: str = Form(None),
-):
-    """
-    1. Accepts an uploaded image file and target languages.
-    2. Runs OCR with OpenAI (fallbacks to pytesseract if needed).
-    3. Translates extracted text into up to 3 languages.
-    """
-    # Save file temporarily
-    file_location = f"temp_{file.filename}"
-    with open(file_location, "wb") as buffer:
-        buffer.write(await file.read())
-
-    # OCR step
-    try:
-        extracted_text = await extract_text_from_image(file_location)
-    except Exception as e:
-        return JSONResponse({"error": f"OCR failed: {str(e)}"}, status_code=500)
-
-    # Translate
-    translations = []
-    for lang in [lang1, lang2, lang3]:
-        if lang:
-            translated = await translate_text(extracted_text, lang)
-            translations.append({lang: translated})
-
-    return {"original": extracted_text, "translations": translations}
